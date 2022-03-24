@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/luisfn/grpc/greet/greetpb"
 	"google.golang.org/grpc"
 	"io"
 	"log"
+	"time"
 )
 
 func main() {
@@ -20,8 +22,8 @@ func main() {
 	c := greetpb.NewGreetServiceClient(cc)
 
 	//doUnary(c)
-
-	doStream(c)
+	//doServerStream(c)
+	doClientStream(c)
 }
 
 func doUnary(c greetpb.GreetServiceClient) {
@@ -40,7 +42,7 @@ func doUnary(c greetpb.GreetServiceClient) {
 	log.Printf("Response: %v", resp)
 }
 
-func doStream(c greetpb.GreetServiceClient) {
+func doServerStream(c greetpb.GreetServiceClient) {
 	req := &greetpb.GreetManyTimesRequest{
 		Greeting: &greetpb.Greeting{
 			FirstName: "Johnny",
@@ -66,4 +68,44 @@ func doStream(c greetpb.GreetServiceClient) {
 
 		log.Println(msg)
 	}
+}
+
+func doClientStream(c greetpb.GreetServiceClient) {
+
+	stream, err := c.LongGreet(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to create stream with server: %v", err)
+	}
+
+	names := []string{
+		"John",
+		"Reacher",
+		"Belle",
+		"Mambo",
+		"Jambo",
+	}
+
+	for _, name := range names {
+		req := &greetpb.LongGreetRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: name,
+			},
+		}
+
+		err := stream.Send(req)
+
+		if err != nil {
+			log.Fatalf("Failed to stream request %v", req)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	resp, err := stream.CloseAndRecv()
+
+	if err != nil {
+		log.Fatalf("Failed to get response from server: %v", err)
+	}
+
+	fmt.Println(resp.String())
 }

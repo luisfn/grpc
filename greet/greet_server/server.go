@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/luisfn/grpc/greet/greetpb"
@@ -48,6 +50,35 @@ func (*server) GreetManyTimes(req *greetpb.GreetManyTimesRequest, stream greetpb
 		}
 
 		time.Sleep(1 * time.Second)
+	}
+
+	return nil
+}
+
+func (*server) LongGreet(stream greetpb.GreetService_LongGreetServer) error {
+	fmt.Println("Long greet request received")
+
+	msgs := []string{}
+
+	for {
+		msg, err := stream.Recv()
+
+		if err == io.EOF {
+			fmt.Printf("Got %d messages", len(msgs))
+			return stream.SendAndClose(&greetpb.LongGreetResponse{
+				Result: strings.Join(msgs, " "),
+			})
+		}
+
+		if err != nil {
+			log.Fatalf("Failed to process request: %v", err)
+		}
+
+		log.Printf("Received: %v", msg)
+
+		firstName := msg.GetGreeting().GetFirstName()
+
+		msgs = append(msgs, fmt.Sprintf("hello %s", firstName))
 	}
 
 	return nil
