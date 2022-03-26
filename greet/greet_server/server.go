@@ -11,6 +11,7 @@ import (
 
 	"github.com/luisfn/grpc/greet/greetpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type server struct{}
@@ -72,6 +73,7 @@ func (*server) LongGreet(stream greetpb.GreetService_LongGreetServer) error {
 
 		if err != nil {
 			log.Fatalf("Failed to process request: %v", err)
+			return err
 		}
 
 		log.Printf("Received: %v", msg)
@@ -79,6 +81,40 @@ func (*server) LongGreet(stream greetpb.GreetService_LongGreetServer) error {
 		firstName := msg.GetGreeting().GetFirstName()
 
 		msgs = append(msgs, fmt.Sprintf("hello %s", firstName))
+	}
+
+	return nil
+}
+
+func (*server) GreetEveryone(stream greetpb.GreetService_GreetEveryoneServer) error {
+	log.Println("Starting BiDi Server")
+
+	for {
+		req, err := stream.Recv()
+
+		if err == io.EOF {
+			return nil
+		}
+
+		if err != nil {
+			log.Fatalf("Failed to process  BiDi request: %v", err)
+			return err
+		}
+
+		log.Printf("Received request: %v\n", req)
+
+		firstName := req.GetGreeting().GetFirstName()
+		lastName := req.GetGreeting().GetLastName()
+
+		resp := &greetpb.GreetEveryoneResponse{
+			Result: fmt.Sprintf("Hello %s %s", firstName, lastName),
+		}
+
+		err = stream.Send(resp)
+		if err != nil {
+			log.Fatalf("Failed to send BiDi response: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -92,6 +128,8 @@ func main() {
 
 	s := grpc.NewServer()
 	greetpb.RegisterGreetServiceServer(s, &server{})
+
+	reflection.Register(s)
 
 	fmt.Println("Listening on tcp/0.0.0.0:50051")
 

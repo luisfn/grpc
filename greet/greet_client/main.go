@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+type Person struct {
+	FirstName string
+	LastName  string
+}
+
 func main() {
 	cc, err := grpc.Dial("0.0.0.0:50051", grpc.WithInsecure())
 
@@ -23,7 +28,81 @@ func main() {
 
 	//doUnary(c)
 	//doServerStream(c)
-	doClientStream(c)
+	//doClientStream(c)
+	doBiDiStream(c)
+}
+
+func doBiDiStream(c greetpb.GreetServiceClient) {
+	log.Println("Starting to send BiDi requests")
+
+	stream, err := c.GreetEveryone(context.Background())
+	if err != nil {
+		log.Fatalf("could not create BiDi stream: %v", err)
+		return
+	}
+
+	ch := make(chan struct{})
+
+	people := []Person{
+		{
+			FirstName: "Johnny",
+			LastName:  "Leroy",
+		},
+		{
+			FirstName: "Jack",
+			LastName:  "Reacher",
+		},
+		{
+			FirstName: "Aloy",
+			LastName:  "Rost",
+		},
+		{
+			FirstName: "Pepeka",
+			LastName:  "Ruiva",
+		},
+		{
+			FirstName: "Talannah",
+			LastName:  "Roth",
+		},
+	}
+
+	//keep sending
+	go func() {
+		for _, person := range people {
+			req := &greetpb.GreetEveryoneRequest{
+				Greeting: &greetpb.Greeting{
+					FirstName: person.FirstName,
+					LastName:  person.LastName,
+				},
+			}
+
+			log.Printf("Sending message %v\n", req)
+			stream.Send(req)
+			time.Sleep(1 * time.Second)
+		}
+		stream.CloseSend()
+	}()
+
+	//keep receiving
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				log.Fatalf("could not receive BiDi request: %v", err)
+				break
+			}
+
+			log.Printf("Received: %v\n", res.GetResult())
+		}
+
+		close(ch)
+	}()
+
+	<-ch
 }
 
 func doUnary(c greetpb.GreetServiceClient) {
