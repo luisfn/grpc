@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luisfn/grpc/greet/greetpb"
+	"github.com/luisfn/greet/greetpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

@@ -1,4 +1,4 @@
-module github.com/luisfn/grpc
+module github.com/luisfn/greet
 
 go 1.17
 
