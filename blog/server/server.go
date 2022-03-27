@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"net"
 	"os"
@@ -24,7 +25,7 @@ var (
 )
 
 type blogItem struct {
-	id      primitive.ObjectID `bson:"_id,omitempty"`
+	Id      primitive.ObjectID `bson:"_id,omitempty"`
 	Author  string             `bson:"author"`
 	Title   string             `bson:"title"`
 	Content string             `bson:"content"`
@@ -116,6 +117,31 @@ func (*server) CreateBlog(ctx context.Context, req *pb.CreateBlogRequest) (*pb.C
 			Author:  blog.GetAuthor(),
 			Title:   blog.GetTitle(),
 			Content: blog.GetContent(),
+		},
+	}, nil
+}
+
+func (*server) ReadBlog(ctx context.Context, req *pb.ReadBlogRequest) (*pb.ReadBlogResponse, error) {
+	log.Printf("Retrieving blog entry: %v", req)
+
+	id := req.GetId()
+	oid, err := primitive.ObjectIDFromHex(id)
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("Internal error: %v", err))
+	}
+
+	data := &blogItem{}
+	if err := collection.FindOne(context.Background(), bson.M{"_id": oid}).Decode(data); err != nil {
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Entry %s not found: %v", id, err))
+	}
+
+	return &pb.ReadBlogResponse{
+		Blog: &pb.Blog{
+			Id:      data.Id.Hex(),
+			Author:  data.Author,
+			Title:   data.Title,
+			Content: data.Content,
 		},
 	}, nil
 }
